@@ -1,8 +1,8 @@
 # Tavily Search Agent — AI-Powered Telegram Research Bot
 
-An AI Agent, accessible through Telegram, that answers user questions by searching the live web with **Tavily** — instead of relying only on the model's static knowledge.
 ![Workflow Diagram](./workflow-diagram.png)
 
+An AI Agent, accessible through Telegram, that answers user questions by searching the live web with **Tavily** — instead of relying only on the model's static knowledge.
 ## The Problem It Solves
 
 Static AI chatbots can't answer questions about current events, recent news, or anything beyond their training data. This agent solves that by giving the AI a **real-time web search tool**, so it always has access to fresh, accurate information — and knows *when* it actually needs to search versus when it can just respond directly (e.g. a simple greeting).
