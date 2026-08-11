@@ -32,6 +32,11 @@ Telegram Trigger
 5. **Memory (Buffer Window)** — keeps track of the last messages per user, so the conversation has context.
 6. **Telegram Reply** — sends the final answer back, formatted with Markdown for readability.
 
+## Version History
+
+- **[workflow-v1.json](./workflow-v1.json)** — Initial version. During testing, I found and fixed a bug where the Telegram Chat ID was hardcoded instead of being read dynamically, meaning the bot would only ever reply to one user regardless of who messaged it.
+- **[workflow-v2.json](./workflow-v2.json)** — Fixed version with dynamic Chat ID, input validation (filters empty/emoji-only messages and stickers), retry logic, and error fallback messages. **This is the version to use.**
+
 ## The 3 Reliability Layers
 
 Every AI Agent workflow I build follows the same three standards:
