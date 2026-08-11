@@ -28,4 +28,4 @@ I'm currently taking on freelance automation projects — from simple task autom
 
 If you have a repetitive process in your business that could be automated, or you need an AI agent that actually works reliably in production, feel free to reach out.
 
-**Contact:** [Email: alaaoka2002@gmail.com] 
+**Contact:** Email: alaaoka2002@gmail.com 
