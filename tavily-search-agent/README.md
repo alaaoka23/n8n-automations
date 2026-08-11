@@ -26,7 +26,7 @@ Telegram Trigger
 
 1. **Telegram Trigger** — listens for incoming messages.
 2. **If Node (input validation)** — checks that the message actually contains meaningful text. Messages that are empty, stickers, images, or *emoji-only* (e.g. "❤️❤️❤️") are filtered out and redirected to a clarification message, while normal text — even text that includes emojis — passes through correctly.
-3. **AI Agent** — powered by GPT, decides whether the question needs a live web search or can be answered directly (e.g. casual conversation), using a system prompt that defines its role, tone (Egyptian Arabic), and boundaries (e.g. no medical/legal advice).
+3. **AI Agent** — powered by GPT, decides whether the question needs a live web search or can be answered directly (e.g. casual conversation), using a system prompt that defines its role, tone , and boundaries (e.g. no medical/legal advice).
 4. **Tavily Tool** — called by the agent on demand to fetch real-time search results.
 5. **Memory (Buffer Window)** — keeps track of the last messages per user, so the conversation has context.
 6. **Telegram Reply** — sends the final answer back, formatted with Markdown for readability.
