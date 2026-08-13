@@ -1,6 +1,6 @@
 # 📰 News Automation (n8n Workflow)
 
-![News Automation Diagram](./News%20Automation-diagram.png)
+![News Automation Diagram](./News-Automation-diagram.png)
 
 An automated **n8n** workflow that fetches daily news, filters the important ones using an **AI Agent (GPT)**, and sends concise summaries — written in **Egyptian Colloquial Arabic** — directly to a **Telegram** chat.
 
