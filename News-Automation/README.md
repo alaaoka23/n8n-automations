@@ -1,4 +1,4 @@
-# 📰 News Automation (n8n Workflow)
+# News Automation (n8n Workflow)
 
 ![News-Automation Diagram](./News-Automation-diagram.png)
 
@@ -6,7 +6,7 @@ An automated **n8n** workflow that fetches daily news, filters the important one
 
 ---
 
-## ✨ Features
+## Features
 
 -  **Scheduled** — runs automatically once a day (default: 11:00 PM).
 -  **Fetches live news** from the [GNews API](https://gnews.io/).
@@ -18,7 +18,7 @@ An automated **n8n** workflow that fetches daily news, filters the important one
 
 ---
 
-## 🧩 Workflow Overview
+## Workflow Overview
 
 ```
 Schedule Trigger
@@ -64,7 +64,7 @@ Wait — delay before next message
 
 ---
 
-## 🚀 Setup Instructions
+## Setup Instructions
 
 ### 1. Import the workflow
 - In n8n, go to **Workflows → Import from File**.
@@ -92,7 +92,7 @@ https://gnews.io/api/v4/search?q=example&lang=en&country=us&max=10
 ```
 Replace `q=example` with real search terms relevant to your use case, e.g.:
 ```
-q=AI OR technology OR startups OR "Egypt economy"
+q=AI OR technology OR startups
 ```
 
 ### 4. Set your Telegram Chat ID
@@ -110,7 +110,7 @@ Toggle the workflow to **Active** once all credentials and settings are configur
 
 ---
 
-## 🛠️ Customization
+## Customization
 
 - **Change the AI's evaluation criteria** — edit the `systemMessage` in the `AI Agent` node to match different topics of interest.
 - **Change summary language/tone** — the current prompt outputs Egyptian Colloquial Arabic; edit the system message to change language or tone.
@@ -127,6 +127,6 @@ Toggle the workflow to **Active** once all credentials and settings are configur
 
 ---
 
-## 📄 License
+## License
 
 This project is provided as-is for personal/educational use. Feel free to fork and adapt it to your own needs.
