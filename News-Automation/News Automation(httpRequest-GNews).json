@@ -1,0 +1,360 @@
+{
+  "name": "News Automation(httpRequest-GNews)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 23
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        -128
+      ],
+      "id": "bf623446-ec9a-4f41-8f38-e180f3f8162d",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://gnews.io/api/v4/search?q=AI OR technology OR startups OR \"Egypt economy\"&lang=en&country=us&max=10",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        -128
+      ],
+      "id": "1835e1b4-d82f-4c22-b6b0-b6f4d8792d2d",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "JtrJKMA9syIrwpjt",
+          "name": "GNews API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst articles = items[0]?.json?.articles || [];\n\nreturn articles\n  .map(article => {\n    return {\n      json: {\n        title: article.title || null,\n        description: article.description || \"\",\n        source: article.source ? article.source.name : \"\",\n        url: article.url || \"\",\n        publishedAt: article.publishedAt || \"\"\n      }\n    };\n  })\n  .filter(item => item.json.title !== null);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -128
+      ],
+      "id": "4ea88834-0fa4-4099-9ae7-0a339bd6803e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Evaluate this news article:\n\nTitle: {{ $json.title }}\nDescription: {{ $json.description }}\nSource: {{ $json.source }}\nURL: {{ $json.url }}\n",
+        "options": {
+          "systemMessage": "You are an AI News Filter and Summarizer Agent in an automated workflow. Your task is to evaluate incoming news articles and format the important ones for a Telegram notification.\n\n### EVALUATION CRITERIA:\n1. IMPORTANT (True): Articles related to AI, technology, startups, business, or Egypt's economy/news.\n2. NOT IMPORTANT (False): Articles related to sports, celebrity gossip, entertainment, or irrelevant general news.\n\n### OUTPUT RULES:\n- You MUST respond ONLY with a valid JSON object. Do not add any introductory or concluding text outside the JSON.\n- If the article is IMPORTANT (important: true):\n  - Write a clear, concise summary formatted for Telegram using Egyptian Colloquial Arabic.\n  - Use a polite, professional, and well-structured tone.\n  - Separate sentences/points with a line break for maximum readability.\n- If the article is NOT IMPORTANT (important: false):\n  - Set the reason brief, and leave the telegram_message field empty or minimal.\n\n### REQUIRED JSON FORMAT:\n{\n  \"important\": true,\n  \"score\": 8,\n  \"reason\": \"سبب قصير بالعربي لتصنيف المقال\",\n  \"telegram_message\": \"ملخص المقال بالعامية المصرية المؤدبة والمنظمة جاهز للبعث على تليجرام\"\n}",
+          "maxIterations": 3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        672,
+        -128
+      ],
+      "id": "51772d8d-007b-455c-8866-5dd9b0249957",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        672,
+        80
+      ],
+      "id": "c333c8cc-250e-4053-bc3b-250bab24d5bb",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "zl5iBZrkD3i4YPLj",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d642fae9-e0ad-40c3-9803-b98d91b4ed18",
+              "leftValue": "={{ JSON.parse($json.output).important }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        -128
+      ],
+      "id": "ef947d18-57cf-4404-8a8b-ffc2b0d5e380",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b25e64f2-fbd5-4a1e-a903-6af34a435a8b",
+              "name": "message",
+              "value": "={{ JSON.parse($json.output).telegram_message }} ",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1504,
+        -320
+      ],
+      "id": "5371669c-e9c4-4565-bf22-0eba96e79129",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        32
+      ],
+      "id": "d4dce69d-d6c8-408c-8bde-4b842ca1ca07",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "chatId": "1780804448",
+        "text": "={{ $json['message'] }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1728,
+        -400
+      ],
+      "id": "07601fe3-8433-4e43-a606-dfac25b59383",
+      "name": "Send a text message",
+      "webhookId": "4f640735-c9c4-4161-a7b0-29784d6a56c1",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2000,
+        -304
+      ],
+      "id": "1c9c7b7c-34b9-4273-bfed-6a65fa0ccfcd",
+      "name": "Wait",
+      "webhookId": "0f2ecc82-0fdd-4abf-b741-5e5cfe0befcc"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1312,
+        -464
+      ],
+      "id": "fbc9f1d1-1061-4eac-830f-331296a64cc2",
+      "name": "Loop Over Items"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e67c12ea-d9eb-4702-a697-8bc7c225164e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4672ce217887a5e3b675414433b3be151a370334d561e21145cbd826b8568d10"
+  },
+  "nodeGroups": [],
+  "id": "8ppM4j4GHNXp8hCl",
+  "tags": []
+}
