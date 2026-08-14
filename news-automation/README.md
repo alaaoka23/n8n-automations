@@ -1,4 +1,4 @@
-# news automation (n8n Workflow)
+# News Automation (n8n Workflow)
 
 ![news-automation Diagram](./news-automation-diagram.png)
 
