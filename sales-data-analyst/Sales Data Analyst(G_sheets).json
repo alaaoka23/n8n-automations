@@ -1,0 +1,467 @@
+{
+  "name": "Sales Data Analyst(G_sheets)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        -160
+      ],
+      "id": "5057b835-ae7c-4a00-8400-7c18a0f3b222",
+      "name": "Telegram Trigger",
+      "webhookId": "1bf02fb5-f953-47aa-9541-9401b57a0d8c",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.user_question }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a Sales Data Analyst Agent integrated into a Telegram workflow. Your primary role is to answer user queries regarding sales data stored in a connected Google Sheets spreadsheet.\n\n### BEHAVIOR RULES & TOOL USAGE:\n\n1. LANGUAGE MAPPING & BILINGUAL HANDLING:\n   - The user will interact in Arabic, but the Google Sheet data (column names, months, product names, metrics) is in English.\n   - You MUST translate/map Arabic search terms (e.g., \"أغسطس\", \"المبيعات\", \"الأجهزة\") into their corresponding English values when querying and searching the Google Sheet.\n   - ALWAYS return your final response to the user in polite Egyptian Colloquial Arabic (العامية المصرية).\n\n2. MANDATORY GOOGLE SHEETS TOOL:\n   - For ANY query about sales figures, dates, products, or performance, you MUST call the Google Sheets tool first. \n   - NEVER estimate, guess, or generate fake sales data under any circumstances.\n\n3. MANDATORY CALCULATOR TOOL:\n   - For any mathematical calculation (totals, averages, growth rates, percentages, or comparisons), you MUST use the Calculator tool to ensure 100% accuracy.\n\n4. HANDLING AMBIGUITY & MISSING DATA (STATUS RETURN):\n   - Do NOT attempt to guess what the user meant if the request is unclear.\n   - If the query is ambiguous (e.g., missing specific month, year, or product category), return a JSON with status \"AMBIGUOUS\" and ask a short, clear question in Egyptian Arabic to clarify.\n   - If the requested data does not exist in the Google Sheet, return a JSON with status \"NOT_FOUND\" and explain that clearly in Egyptian Arabic.\n\n5. RESPONSE FORMAT & LANGUAGE:\n   - Respond strictly in polite, natural Egyptian Colloquial Arabic (العامية المصرية).\n   - Format single metrics or key totals in **bold**.\n   - Use clean Markdown tables for multi-row data, breakdowns, or rankings.\n   - Keep messages neatly formatted with a blank line (double break) between paragraphs for Telegram readability.\n\n6. STRICT BOUNDARIES:\n   - Only answer queries related to the connected sales spreadsheet. Politely decline any off-topic requests (weather, personal advice, general knowledge).\n\n### OUTPUT FORMAT (JSON):\nAlways structure your response output as follows:\n\n{\n  \"status\": \"SUCCESS\" | \"AMBIGUOUS\" | \"NOT_FOUND\",\n  \"telegram_message\": \"نص الرد بالعامية المصرية المؤدبة والمنظمة للبعث على تليجرام\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        864,
+        -256
+      ],
+      "id": "82a85c89-2ebc-4059-ac89-54ca13b26f11",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e6d9c8e0-2a4d-496d-bfc4-efda2d7ec076",
+              "name": "chat_id",
+              "value": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+              "type": "string"
+            },
+            {
+              "id": "719966cf-47b5-494d-836d-88220c764314",
+              "name": "user_question",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        528,
+        -336
+      ],
+      "id": "39163803-a0e9-4749-9ab4-02ad559296e2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a967ce24-03f5-4e6e-81a3-d3f598ff8992",
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "24e97248-fd0c-4f04-82d5-4ec88b20413c",
+              "leftValue": "={{ $json.message.text.replace(/[\\p{Extended_Pictographic}\\u200d\\uFE0F\\s]/gu, '') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        -160
+      ],
+      "id": "d8c503c5-8d45-4cb1-87de-89e5ae64a5de",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        680,
+        -24
+      ],
+      "id": "cd4f64b0-5906-4902-884a-b062fec4d16a",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "zl5iBZrkD3i4YPLj",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json['chat_id'] }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        808,
+        -24
+      ],
+      "id": "a254288a-9467-4add-b697-b41b98fc9947",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        936,
+        -24
+      ],
+      "id": "1dd297db-9276-42f0-9c64-80a780331632",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"status\": { \"type\": \"string\", \"enum\": [\"SUCCESS\", \"AMBIGUOUS\", \"NOT_FOUND\"] },\n    \"telegram_message\": { \"type\": \"string\" }\n  },\n  \"required\": [\"status\", \"telegram_message\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1192,
+        -24
+      ],
+      "id": "774dbb24-131e-48e0-994d-d4ce7fe62f0a",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=Use this tool to search and read sales data from the connected Google Sheets database. \n\nThe sheet contains transactional sales records with the following columns:\n- date: Transaction date (Format: YYYY-MM-DD, e.g., 2026-01-03).\n- city: City where the sale occurred (e.g., Cairo, Alexandria).\n- product: Specific product sold (e.g., Laptop, Laptop Bag, Wireless Mouse, Monitor, Headphone, Dishwasher).\n- category: Main product category (e.g., Accessories, Electronics).\n- quantity: Number of items sold in the transaction (Numeric integer).\n- unit-price: Price per single unit in local currency (Numeric integer/float).\n- sales_rep: Name of the sales representative who closed the deal (e.g., salma, alaa).\n\nUse this tool to filter by date, city, product category, or sales representative, or to retrieve quantities and prices needed for revenue calculations.",
+        "documentId": {
+          "__rl": true,
+          "value": "1RCaI57Z9MefWQ75kkT4GUdappmEznriM2Pyls8LEvDc",
+          "mode": "list",
+          "cachedResultName": "Sales Data - Practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1RCaI57Z9MefWQ75kkT4GUdappmEznriM2Pyls8LEvDc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sales",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1RCaI57Z9MefWQ75kkT4GUdappmEznriM2Pyls8LEvDc/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        1064,
+        -24
+      ],
+      "id": "9ddac87c-7e94-4605-98bb-c9c119194c92",
+      "name": "Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1350c712-6223-4d88-9b52-72ef291af946",
+              "leftValue": "={{ $json.output.status }}",
+              "rightValue": "SUCCESS",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        -256
+      ],
+      "id": "408b8b17-5b44-43e3-93d0-30cb40186733",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output.telegram_message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1616,
+        -352
+      ],
+      "id": "12ea9ff0-c5ab-4373-9f66-23b0f8f87064",
+      "name": "Send a text message",
+      "webhookId": "9831103c-ff79-4c73-9846-04b898f6dc03",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "send a text message please.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        -64
+      ],
+      "id": "3e129cd1-2c9d-494d-9edd-e21260f5d4e4",
+      "name": "Send a text message1",
+      "webhookId": "1c61f458-197d-4bd4-a452-e774644c6857",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output.telegram_message }}\n\nلو تقدري، اكتبي السؤال مع تحديد الفترة أو المدينة أو المنتج المطلوب.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1616,
+        -160
+      ],
+      "id": "e8b353fc-bfc2-47bc-bf64-68a95b601994",
+      "name": "Send a text message2",
+      "webhookId": "13bf07b4-274f-452d-a097-9e30fcbbff16",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7e9bcc2e-952c-4425-b0cf-abb71cf96398",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4672ce217887a5e3b675414433b3be151a370334d561e21145cbd826b8568d10"
+  },
+  "nodeGroups": [],
+  "id": "iTR5GJ8M9FgWUJ3L",
+  "tags": []
+}
