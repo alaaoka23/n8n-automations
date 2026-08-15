@@ -1,4 +1,5 @@
 # Customer Support Triage — AI-Powered n8n Workflow
+![customer-support-triage Diagram](./customer-support-triage-diagram.png)
 
 An automated customer support triage system built with **n8n**, **OpenAI (GPT-5 mini)**, and **Google Sheets**, integrated with **Telegram** as the customer-facing channel. The workflow classifies incoming customer messages in real time, replies to the customer in natural Egyptian Arabic, logs an internal record for the support team, and escalates urgent cases to a human agent automatically.
 
