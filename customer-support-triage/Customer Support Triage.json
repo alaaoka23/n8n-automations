@@ -1,0 +1,961 @@
+{
+  "name": "Customer Support Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -1488,
+        320
+      ],
+      "id": "393339db-52bd-4e90-ba20-5b2668b66d2e",
+      "name": "Telegram Trigger",
+      "webhookId": "62456c03-0117-4f9b-8ede-f6dcab32604f",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.customer_message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are the first-line support triage assistant for an online business operating via Telegram. Your task is to analyze incoming customer messages, classify them accurately, log the internal analysis in a Google Sheet, and send a polite reply to the customer on Telegram.\n\n### CLASSIFICATION CATEGORIES:\n- faq: General support questions, policies, or routine inquiries.\n- complaint: Dissatisfaction, refund requests, delivery delays, damaged items, or unresolved recurring issues.\n- urgent: Security concerns, double payment, blocked accounts, critical outages, threats, or issues requiring immediate human intervention.\n- unknown: Incomplete, vague, unclear, or off-topic messages.\n\n### DUAL-OUTPUT RULES (Sheet Logging vs. Telegram Response):\n\n1. GOOGLE SHEET LOGGING RULES (Internal Record):\n   - You MUST write all internal field values (category, internal_summary) in ENGLISH by default.\n   - Exception: Only log in Arabic if the user explicitly instructs you to write internal results in Arabic.\n\n2. TELEGRAM CUSTOMER RESPONSE RULES (External Chat):\n   - ALWAYS reply to the customer using friendly, polite, and natural Egyptian Colloquial Arabic (العامية المصرية).\n   - Keep the response brief, empathetic, and professional.\n   - Do NOT reveal internal metadata (category, confidence score, urgency level, or internal summary) to the customer.\n\n### BEHAVIOR & COMPLIANCE RULES:\n- If category is \"urgent\": set needs_human = true, urgency = \"high\", and reassure the customer politely that a representative will inspect their issue shortly.\n- If category is \"unknown\" OR you are not confident in the classification: set confidence below 0.5, and put ONE short, direct clarification question in Egyptian Arabic in the clarification_question field.\n- If clarification_question is not needed, return it as an empty string \"\".\n- NEVER promise refunds, specific delivery dates, compensations, or actions not yet approved.\n- Do NOT provide medical, legal, financial, or unsafe advice.\n\n### STRICT OUTPUT FORMAT:\nYou must return your output strictly according to the following fields (this is enforced automatically by a structured output parser — do not add, rename, or nest any fields):\n\n- category: one of \"faq\" | \"complaint\" | \"urgent\" | \"unknown\"\n- confidence: a number between 0 and 1 representing how confident you are in the classification\n- urgency: one of \"low\" | \"medium\" | \"high\"\n- needs_human: true or false\n- customer_reply: the polite Egyptian Arabic reply that will be sent directly to the customer (never reveal internal data here)\n- internal_summary: a concise internal summary in English for the support team\n- clarification_question: one direct Arabic clarification question if category is \"unknown\" or confidence is low, otherwise an empty string \"\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1040,
+        320
+      ],
+      "id": "9ab48538-7474-40bc-bc04-ed2b5a1873ff",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1168,
+        528
+      ],
+      "id": "65f4e104-b5b0-4d5f-a7d9-772fdf2f62bf",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "zl5iBZrkD3i4YPLj",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.customer_chat_id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -992,
+        528
+      ],
+      "id": "b46e1b4a-de62-432f-bc1c-fe98c06c6642",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\"faq\", \"complaint\", \"urgent\", \"unknown\"],\n      \"description\": \"Classify the message as faq, complaint, urgent, or unknown.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"minimum\": 0,\n      \"maximum\": 1,\n      \"description\": \"Confidence score from 0 to 1.\"\n    },\n    \"urgency\": {\n      \"type\": \"string\",\n      \"enum\": [\"low\", \"medium\", \"high\"],\n      \"description\": \"Urgency level. Use high for urgent cases.\"\n    },\n    \"needs_human\": {\n      \"type\": \"boolean\",\n      \"description\": \"True when the case must be escalated to a human support agent.\"\n    },\n    \"customer_reply\": {\n      \"type\": \"string\",\n      \"description\": \"A short, polite Arabic reply that will be sent directly to the customer. Do not reveal internal classification or confidence.\"\n    },\n    \"internal_summary\": {\n      \"type\": \"string\",\n      \"description\": \"A concise internal Arabic summary for the support team.\"\n    },\n    \"clarification_question\": {\n      \"type\": \"string\",\n      \"description\": \"One direct Arabic clarification question if the category is unknown or confidence is low. Otherwise return an empty string.\"\n    }\n  },\n  \"required\": [\n    \"category\",\n    \"confidence\",\n    \"urgency\",\n    \"needs_human\",\n    \"customer_reply\",\n    \"internal_summary\",\n    \"clarification_question\"\n  ],\n  \"additionalProperties\": false\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -800,
+        544
+      ],
+      "id": "8aeb3f28-1ac3-4e84-9065-c766e5033d74",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "057d26f8-0121-46ae-8b73-8059b7edc452",
+              "leftValue": "={{ $json.output.confidence }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -688,
+        320
+      ],
+      "id": "ef79e4a0-ad25-4ed4-b026-91faf9a739e7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "faq",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "62c41c9c-09ab-403b-b3b6-b870e5f51a6b"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6e0bd4f4-51b8-4f55-ba3c-205e237bad1b",
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "complaint",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0f2044f4-5cf2-4c98-ae5c-823cda9045fe",
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "urgent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -336,
+        160
+      ],
+      "id": "1fa326d8-4200-4feb-9313-9a148dda924e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output.customer_reply }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -448,
+        512
+      ],
+      "id": "ffb84cc4-5969-459b-b192-6185a02231f3",
+      "name": "Send a text message",
+      "webhookId": "1cdca33e-bc25-4851-8aa5-a90fa311e83a",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "130854ba-1454-45ee-b9ca-892ce761bc4b",
+              "name": "ticket_id",
+              "value": "={{ $('Prepare Customer Data').item.json.ticket_id }}",
+              "type": "string"
+            },
+            {
+              "id": "9020dede-3921-4dfe-aeca-38c3d8b9b78e",
+              "name": "created_at",
+              "value": "={{ $('Prepare Customer Data').item.json.received_at }}",
+              "type": "string"
+            },
+            {
+              "id": "459b507b-e169-4158-9049-50340035308d",
+              "name": "customer_chat_id",
+              "value": "={{ $('Prepare Customer Data').item.json.customer_chat_id }}",
+              "type": "string"
+            },
+            {
+              "id": "24bc4f68-bc97-475e-9ec2-ef538662ff37",
+              "name": "category",
+              "value": "={{ $json.output.category }}",
+              "type": "string"
+            },
+            {
+              "id": "a522ea2e-efb7-4e73-a805-b7d04cbae8b9",
+              "name": "urgency",
+              "value": "={{ $json.output.urgency }}",
+              "type": "string"
+            },
+            {
+              "id": "93691e84-e553-47b8-b550-7e8608c41eb4",
+              "name": "customer_message",
+              "value": "={{ $('Prepare Customer Data').item.json.customer_message }}",
+              "type": "string"
+            },
+            {
+              "id": "b4eea381-aa46-4945-9536-982bcd0a87ec",
+              "name": "internal_summary",
+              "value": "={{ $json.output.internal_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "eb76e285-d138-448f-85eb-f0ecb4555c0a",
+              "name": "status",
+              "value": "open",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -16,
+        176
+      ],
+      "id": "1874ccb5-7f76-4511-bac5-bf738a5143a2",
+      "name": "Prepare Complaint Ticket"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1C97Y9_cBgXsA0zSezLHTZoE3u2TeceMukrtStyBAuMM",
+          "mode": "list",
+          "cachedResultName": "Support Tickets - Practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1C97Y9_cBgXsA0zSezLHTZoE3u2TeceMukrtStyBAuMM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1C97Y9_cBgXsA0zSezLHTZoE3u2TeceMukrtStyBAuMM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_chat_id",
+              "displayName": "customer_chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_message",
+              "displayName": "customer_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "internal_summary",
+              "displayName": "internal_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        176
+      ],
+      "id": "4fd036a1-1b76-45dc-9133-4495f12754b2",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1C97Y9_cBgXsA0zSezLHTZoE3u2TeceMukrtStyBAuMM",
+          "mode": "list",
+          "cachedResultName": "Support Tickets - Practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1C97Y9_cBgXsA0zSezLHTZoE3u2TeceMukrtStyBAuMM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1C97Y9_cBgXsA0zSezLHTZoE3u2TeceMukrtStyBAuMM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_chat_id",
+              "displayName": "customer_chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_message",
+              "displayName": "customer_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "internal_summary",
+              "displayName": "internal_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        400
+      ],
+      "id": "f4e1aa78-1d1f-45aa-aa52-3db16d432e4b",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "130854ba-1454-45ee-b9ca-892ce761bc4b",
+              "name": "ticket_id",
+              "value": "={{ $('Prepare Customer Data').item.json.ticket_id }}",
+              "type": "string"
+            },
+            {
+              "id": "9020dede-3921-4dfe-aeca-38c3d8b9b78e",
+              "name": "created_at",
+              "value": "={{ $('Prepare Customer Data').item.json.received_at }}",
+              "type": "string"
+            },
+            {
+              "id": "459b507b-e169-4158-9049-50340035308d",
+              "name": "customer_chat_id",
+              "value": "={{ $('Prepare Customer Data').item.json.customer_chat_id }}",
+              "type": "string"
+            },
+            {
+              "id": "24bc4f68-bc97-475e-9ec2-ef538662ff37",
+              "name": "category",
+              "value": "={{ $json.output.category }}",
+              "type": "string"
+            },
+            {
+              "id": "a522ea2e-efb7-4e73-a805-b7d04cbae8b9",
+              "name": "urgency",
+              "value": "={{ $json.output.urgency }}",
+              "type": "string"
+            },
+            {
+              "id": "93691e84-e553-47b8-b550-7e8608c41eb4",
+              "name": "customer_message",
+              "value": "={{ $('Prepare Customer Data').item.json.customer_message }}",
+              "type": "string"
+            },
+            {
+              "id": "b4eea381-aa46-4945-9536-982bcd0a87ec",
+              "name": "internal_summary",
+              "value": "={{ $json.output.internal_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "eb76e285-d138-448f-85eb-f0ecb4555c0a",
+              "name": "status",
+              "value": "Escalated",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -16,
+        400
+      ],
+      "id": "c1c3bae6-24de-4fbd-b228-0f0da28da5a9",
+      "name": "Prepare Complaint Ticket(urgent)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2983a3d9-f946-490c-b0c2-eb8fa4f158fe",
+              "name": "customer_chat_id",
+              "value": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+              "type": "number"
+            },
+            {
+              "id": "b7e638e1-43f5-4d32-8671-0fe5f2bccec9",
+              "name": "customer_message",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "81a541da-b9f2-4fda-9482-8ed71ef0f16a",
+              "name": "received_at",
+              "value": "={{ $now.format('yyyy-MM-dd hh:mm a') }}",
+              "type": "string"
+            },
+            {
+              "id": "f2b610a1-846c-4fc3-8faf-50bd537e943e",
+              "name": "ticket_id",
+              "value": "=TKT-{{ $now.format('yyyyLLdd-HHmmss') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1264,
+        320
+      ],
+      "id": "c00f9435-8092-4229-8e82-afd1fd1dbb6b",
+      "name": "Prepare Customer Data"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Customer Data').item.json.customer_chat_id }}",
+        "text": "={{ $json.output.customer_reply }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        0
+      ],
+      "id": "e454adcb-e976-4d55-a5ce-5a2d851881c5",
+      "name": "faq reply ",
+      "webhookId": "19376fce-b5b5-49ff-9242-9b204567eb2e",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Customer Data').item.json.customer_chat_id }}",
+        "text": "={{ $('AI Agent').item.json.output.customer_reply }}\nرقم المتابعة: {{ $('Prepare Customer Data').item.json.ticket_id }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        416,
+        176
+      ],
+      "id": "47747998-26e4-430e-a20b-3e6cad76a1f9",
+      "name": "complaint message",
+      "webhookId": "19376fce-b5b5-49ff-9242-9b204567eb2e",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Customer Data').item.json.customer_chat_id }}",
+        "text": "=🚨 عاجل — تذكرة جديدة\n\nTicket: {{ $('Prepare Customer Data').item.json.ticket_id }}\nCategory: {{ $('AI Agent').item.json.output.category }}\nSummary: {{$('AI Agent').item.json.output.internal_summary }}\nCustomer message: {{ $('Prepare Customer Data').item.json.customer_message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        352
+      ],
+      "id": "df69466b-315c-4796-867d-2e2571b5a944",
+      "name": "admin alert ",
+      "webhookId": "19376fce-b5b5-49ff-9242-9b204567eb2e",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Customer Data').item.json.customer_chat_id }}",
+        "text": "={{ $('AI Agent').item.json.output.customer_reply }}\nتم تصعيد طلبك للفريق المختص برقم: {{ $('Prepare Customer Data').item.json.ticket_id }}\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        528
+      ],
+      "id": "ee12e085-dd38-438a-9eab-8600436fc026",
+      "name": "customer reply",
+      "webhookId": "19376fce-b5b5-49ff-9242-9b204567eb2e",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Customer Data').item.json.customer_chat_id }}",
+        "text": "لم أفهم طلبك بشكل كافٍ لتوجيهه بشكل صحيح. هل يمكنكِ توضيح المشكلة وذكر رقم الطلب إن وجد؟",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        624
+      ],
+      "id": "d6258370-c49e-4c49-bb62-4cac2b688e76",
+      "name": "Unknown / Fallback reply",
+      "webhookId": "a4aec1c6-39b2-43f0-ab8c-2debc53cdbff",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "faq reply ",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Complaint Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Complaint Ticket(urgent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unknown / Fallback reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Complaint Ticket": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "complaint message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "admin alert ",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "customer reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Complaint Ticket(urgent)": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Customer Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "87bf747f-92c3-4d5e-94f2-b754819b516d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4672ce217887a5e3b675414433b3be151a370334d561e21145cbd826b8568d10"
+  },
+  "nodeGroups": [],
+  "id": "hmbvdvqNK53fs6eA",
+  "tags": []
+}
