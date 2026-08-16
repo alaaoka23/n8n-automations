@@ -1,5 +1,5 @@
 # Customer Feedback Escalation System
-
+![customer-feedback-escalation-system Diagram](./customer-feedback-escalation-system-diagram.png)
 An n8n automation that collects customer feedback through a web form, uses an AI agent to analyze sentiment and urgency, and automatically routes each submission to the right channel — logging routine feedback for records and instantly alerting the support team about cases that need human follow-up.
 
 ## Overview
