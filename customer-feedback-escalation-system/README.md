@@ -44,7 +44,6 @@ Manually reading through every piece of customer feedback to figure out what's u
    - Telegram Bot API
 3. Replace the placeholder values with your own:
    - `YOUR_TELEGRAM_CHAT_ID` in the `Telegram - Feedback Alert` node
-   - `YOUR_SHEET_ID` in both Google Sheets nodes
 4. Make sure your Google Sheet has two tabs (or two sheets) with these columns:
    `received_at, customer_name, customer_email, order_id, feedback, sentiment, priority, needs_follow_up, topics, internal_summary, suggested_reply, status`
 5. Activate the workflow and test it by submitting the form.
@@ -53,7 +52,6 @@ Manually reading through every piece of customer feedback to figure out what's u
 
 - The AI Agent's error output (e.g. malformed responses or API failures) isn't currently routed anywhere — a planned improvement is to log failed analyses to a dedicated "Errors" sheet, with a Telegram alert for repeated failures.
 - No confidence threshold on the AI classification yet — all outputs are trusted as-is.
-- Sticky notes documenting each stage directly inside the n8n canvas are planned to make the workflow easier to follow without needing this README open side-by-side.
 
 ## Example Flow
 
