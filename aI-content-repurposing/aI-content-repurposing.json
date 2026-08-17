@@ -1,0 +1,1041 @@
+{
+  "name": "aI-content-repurposing",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Repurpose One Topic into Multi-Channel Content",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Source topic or short article",
+              "fieldName": "source_topic",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Brand voice",
+              "fieldName": "brand_voice"
+            },
+            {
+              "fieldLabel": "Target audience",
+              "fieldName": "audience"
+            },
+            {
+              "fieldLabel": "Main goal",
+              "fieldType": "dropdown",
+              "fieldName": "main_goal",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Educate"
+                  },
+                  {
+                    "option": "Generate leads"
+                  },
+                  {
+                    "option": "Build trust"
+                  },
+                  {
+                    "option": "Promote an offer"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "ignoreBots": true
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "279712d8-8d3b-4ef0-bb09-47a52ab16d41",
+      "name": "On form submission",
+      "webhookId": "3178d588-3658-461f-af1c-78468d980c8f"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sourceTopic = $json.source_topic?.trim();\n\nif (!sourceTopic) {\n  throw new Error('Source topic is required');\n}\n\nconst brandVoice = $json.brand_voice?.trim() || 'Professional, clear, practical, and friendly';\nconst audience = $json.audience?.trim() || 'Small business owners and marketing teams';\nconst mainGoal = $json.main_goal?.trim() || 'Educate';\nconst createdAt = new Date().toISOString();\n\nconst normalizedSource = sourceTopic.replace(/\\s+/g, ' ').trim();\nconst sourceWordCount = normalizedSource.split(' ').filter(Boolean).length;\nconst sourceIsInsufficient = sourceWordCount < 6 || normalizedSource.length < 45;\nconst sourceQualityReason = sourceIsInsufficient\n  ? 'المصدر قصير جداً أو عام ولا يحتوي على تفاصيل كافية لبناء محتوى موثوق.'\n  : '';\n\nconst tasks = [\n  {\n    channel: 'LinkedIn',\n    format: 'Educational thought-leadership post',\n    instruction: 'Write a professional LinkedIn post with a strong hook, practical insights, short paragraphs, and a discussion question.'\n  },\n  {\n    channel: 'Instagram',\n    format: 'Caption for carousel or reel',\n    instruction: 'Write a concise Arabic caption with a hook, useful value, line breaks, and a clear CTA.'\n  },\n  {\n    channel: 'X',\n    format: 'Short thread',\n    instruction: 'Write a thread of 4 to 6 short posts. The first post must have a strong hook and the final post must have a CTA.'\n  },\n  {\n    channel: 'Newsletter',\n    format: 'Short newsletter outline',\n    instruction: 'Write a subject line, a concise newsletter body, and a practical closing CTA.'\n  }\n];\n\nreturn tasks.map((task, index) => ({\n  json: {\n    created_at: createdAt,\n    content_id: `CNT-${Date.now()}-${index + 1}`,\n    source_topic: sourceTopic,\n    brand_voice: brandVoice,\n    audience,\n    main_goal: mainGoal,\n    source_is_insufficient: sourceIsInsufficient,\n    source_quality_reason: sourceQualityReason,\n    source_word_count: sourceWordCount,\n    ...task\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "7257e62b-8bf3-4bc3-8a2f-59bf49ffbb81",
+      "name": "creat content task"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "c3581fd7-21ae-4545-a4a6-142ddca6463b",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Source topic:\n{{ $json.source_topic }}\n\nTarget channel: {{ $json.channel }}\nContent format: {{ $json.format }}\nTarget audience: {{ $json.audience }}\nMain goal: {{ $json.main_goal }}\nBrand voice: {{ $json.brand_voice }}\nSource pre-check: {{ $json.source_is_insufficient ? 'INSUFFICIENT' : 'SUFFICIENT' }}\nChannel-specific instruction:\n{{ $json.instruction }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a Senior Arabic Content Strategist for a marketing team. Your primary objective is to create one high-quality, engaging, and channel-tailored piece of Arabic content based STRICTLY on the provided source topic and task brief.\n\n### SYSTEM INSTRUCTIONS & BEHAVIOR RULES:\n\n1. SOURCE TRUTH & ANTI-HALLUCINATION:\n   - Base your content ONLY on the provided source topic and brief.\n   - Do NOT invent statistics, client cases, testimonials, fake URLs, unannounced product features, or company facts.\n   - Strictly avoid exaggerated claims, manipulative language, or unsupported professional advice (medical, legal, financial).\n\n2. LANGUAGE & BRAND VOICE:\n   - Write cleanly and effectively in Arabic (or Egyptian Colloquial Arabic if specifically requested in the brief).\n   - Tailor the tone, length, and format precisely to the specified channel (e.g., LinkedIn, Instagram, X/Twitter, Blog).\n\n3. HASHTAG RULES:\n   - Include 3 to 6 highly relevant Arabic hashtags ONLY if the target channel supports them (e.g., Instagram, LinkedIn, X).\n   - Return an empty array `[]` if hashtags are not appropriate for the requested format/channel.\n\n4. QUALITY ASSURANCE & STATUS LOGIC:\n   - Set quality_status to \"ready\": If the input brief is complete, factual, and the generated content complies 100% with all guidelines.\n   - Set quality_status to \"needs_review\": If the source brief is vague, too brief to create meaningful content, missing essential facts, or risks making an unsupported claim.\n   - When quality_status is \"needs_review\", explain the exact missing info in qa_reason while still providing a safe, conservative draft in content.\n   - If Source pre-check is INSUFFICIENT, you MUST set quality_status to \"needs_review\". Do not set it to \"ready\", even if you can write a generic draft.\n\n### Return only the required structured output."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        672,
+        16
+      ],
+      "id": "69f6b0db-475d-43db-9f38-8fbd388a6302",
+      "name": "AI Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"content\": {\n      \"type\": \"string\",\n      \"description\": \"The complete Arabic content for the requested channel.\"\n    },\n    \"hashtags\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Three to six relevant hashtags, or an empty array if not suitable.\"\n    },\n    \"cta\": {\n      \"type\": \"string\",\n      \"description\": \"A short Arabic call to action.\"\n    },\n    \"quality_status\": {\n      \"type\": \"string\",\n      \"enum\": [\"ready\", \"needs_review\"],\n      \"description\": \"Whether the content is ready for internal review or needs additional human review.\"\n    },\n    \"qa_reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short Arabic reason for the quality decision.\"\n    }\n  },\n  \"required\": [\n    \"content\",\n    \"hashtags\",\n    \"cta\",\n    \"quality_status\",\n    \"qa_reason\"\n  ],\n  \"additionalProperties\": false\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        864,
+        240
+      ],
+      "id": "525e8477-8b4b-41d2-9ba2-a4fb83591850",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "abf6a044-e8ba-4c1b-aadb-88f668e229a6",
+              "name": "created_at",
+              "value": "={{ $now.format('yyyy-MM-dd hh:mm a') }}",
+              "type": "string"
+            },
+            {
+              "id": "5bb2c02c-1862-4ccf-91c7-8b6dae5d977f",
+              "name": "content_id",
+              "value": "={{ $('creat content task').item.json.content_id }}",
+              "type": "string"
+            },
+            {
+              "id": "dce929af-fb98-4da8-9ac3-fa9cf8060820",
+              "name": "channel",
+              "value": "={{ $('creat content task').item.json.channel }}",
+              "type": "string"
+            },
+            {
+              "id": "b3274f14-d2a3-4bea-975e-664ad1af354e",
+              "name": "exception_type",
+              "value": "AI generation failed",
+              "type": "string"
+            },
+            {
+              "id": "677ed82e-9af0-4d5b-86e1-86b9518a0593",
+              "name": "details",
+              "value": "={{ $json.error?.message || $json.error || 'Unknown AI generation error' }}",
+              "type": "string"
+            },
+            {
+              "id": "5750d9b5-3c6c-4d75-bd75-009e8c85ea21",
+              "name": "source_topic",
+              "value": "={{ $('creat content task').item.json.source_topic }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        240
+      ],
+      "id": "25dc3567-f922-472b-a3dc-acbd3d2f6b9b",
+      "name": "Prepare Generation Error"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_ID",
+        "text": "=خطأ تقني في Content Repurposing\n\nChannel: {{ $json.channel }}\nContent ID: {{ $json.content_id }}\nDetails: {{ $json.details }}\n\nتم تسجيل الخطأ، وسيكمل النظام معالجة بقية القنوات.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1712,
+        240
+      ],
+      "id": "28e8224a-6306-4323-a53a-ccefa16907e1",
+      "name": "Technical Content Alert",
+      "webhookId": "94b5a35d-0521-424a-9a00-f5d4664c0d64",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7cc92f5b-5b27-4919-9fb5-c92a4919c3db",
+              "name": "created_at",
+              "value": "={{ $('creat content task').item.json.created_at.toDateTime().format('yyyy-MM-dd hh:mm a') }}",
+              "type": "string"
+            },
+            {
+              "id": "933dbab7-2dff-43a2-ae91-587619d84f1b",
+              "name": "content_id",
+              "value": "={{ $('creat content task').item.json.content_id }}",
+              "type": "string"
+            },
+            {
+              "id": "de518bda-388c-41d4-986c-d90cd60602a5",
+              "name": "channel",
+              "value": "={{ $('creat content task').item.json.channel }}",
+              "type": "string"
+            },
+            {
+              "id": "900740c6-44cf-4dfe-b61d-7619e20eca6f",
+              "name": "audience",
+              "value": "={{ $('creat content task').item.json.audience }}",
+              "type": "string"
+            },
+            {
+              "id": "77e0ed67-8436-497e-b9a7-b4303431a8be",
+              "name": "goal",
+              "value": "={{ $('creat content task').item.json.main_goal }}",
+              "type": "string"
+            },
+            {
+              "id": "4bc4ebdd-f64e-4a3e-8326-d311f49995af",
+              "name": "content",
+              "value": "={{ $json.output.content }}",
+              "type": "string"
+            },
+            {
+              "id": "132d02f3-f321-4fec-b0ad-75762c2bbd55",
+              "name": "hashtags",
+              "value": "={{ $json.output.hashtags.join(' ') }}",
+              "type": "string"
+            },
+            {
+              "id": "b271999f-5073-4350-9e22-d9d73c9937d2",
+              "name": "cta",
+              "value": "={{ $json.output.cta }}",
+              "type": "string"
+            },
+            {
+              "id": "d6917e9a-1566-456e-a451-470bce2d3209",
+              "name": "quality_status",
+              "value": "={{ $('creat content task').item.json.source_is_insufficient ? 'needs_review' : $json.output.quality_status }}",
+              "type": "string"
+            },
+            {
+              "id": "d02d4792-4074-42a6-8c0f-da433a0e1556",
+              "name": "qa_reason",
+              "value": "={{ $('creat content task').item.json.source_is_insufficient ? $('creat content task').item.json.source_quality_reason : $json.output.qa_reason }}",
+              "type": "string"
+            },
+            {
+              "id": "9f8059d0-4ee5-4a45-82f6-216fb57c9d0f",
+              "name": "source_topic",
+              "value": "={{ $('creat content task').item.json.source_topic }}",
+              "type": "string"
+            },
+            {
+              "id": "0110f051-023e-4af1-9fcb-ca5843a4960b",
+              "name": "workflow_status",
+              "value": "={{ ($('creat content task').item.json.source_is_insufficient || $json.output.quality_status === 'needs_review') ? 'Blocked for revision' : 'Queued for review' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1024,
+        -96
+      ],
+      "id": "feaa70a3-0119-40b8-b2a9-600fe254b54d",
+      "name": "Prepare Content Record"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_ID",
+        "text": "=محتوى يحتاج مراجعة بشرية\n\nChannel: {{ $json.channel }}\nContent ID: {{ $json.content_id }}\nReason: {{ $json.qa_reason }}\n\nDraft:\n{{ $json.content }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1696,
+        32
+      ],
+      "id": "a2d04e4a-e65c-47cd-ab0a-5450b5ab5787",
+      "name": "Content Review Alert",
+      "webhookId": "94b5a35d-0521-424a-9a00-f5d4664c0d64",
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_ID",
+        "text": "=اكتملت دفعة Content Repurposing.  تمت معالجة مهام LinkedIn وInstagram وX وNewsletter. راجعي Google Sheet لمعرفة المحتوى الجاهز والمحتوى الذي يحتاج مراجعة.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        736,
+        -304
+      ],
+      "id": "6ae3ffd3-bfcf-4034-907d-21360978fd09",
+      "name": "completed",
+      "webhookId": "50fea881-a0ac-4174-8b54-6514998921b3",
+      "executeOnce": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "zT5JIaOHZPHfkGbd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4722b51e-91e7-4907-b2a2-069e3a2abaaa",
+              "leftValue": "={{ $json.quality_status }}",
+              "rightValue": "=ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1248,
+        -96
+      ],
+      "id": "34c101ae-a3e0-49fc-8b79-89ce7e5445e8",
+      "name": "Is Content Ready?"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU",
+          "mode": "list",
+          "cachedResultName": "Content Repurposing - Practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1799401497,
+          "mode": "list",
+          "cachedResultName": "Content Exceptions",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU/edit#gid=1799401497"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "created_at": "={{$json.created_at}}",
+            "content_id": "={{ $json.content_id }}",
+            "channel": "={{ $json.channel }}",
+            "exception_type": "={{ $json.exception_type }}",
+            "details": "={{ $json.details }}",
+            "source_topic": "={{ $json.source_topic }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "exception_type",
+              "displayName": "exception_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_topic",
+              "displayName": "source_topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1488,
+        240
+      ],
+      "id": "dda75d38-3916-43b3-82e0-b63ef6f35823",
+      "name": "Append Content Exception",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU",
+          "mode": "list",
+          "cachedResultName": "Content Repurposing - Practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Content Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "created_at": "={{ $json.created_at }}",
+            "content_id": "={{ $json.content_id }}",
+            "channel": "={{ $json.channel }}",
+            "goal": "={{ $json.goal }}",
+            "audience": "={{ $json.audience }}",
+            "content": "={{ $json.content }}",
+            "hashtags": "={{ $json.hashtags }}",
+            "cta": "={{ $json.cta }}",
+            "quality_status": "={{ $json.quality_status }}",
+            "qa_reason": "={{ $json.qa_reason }}",
+            "source_topic": "={{ $json.source_topic }}",
+            "workflow_status": "={{ $json.workflow_status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "audience",
+              "displayName": "audience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "goal",
+              "displayName": "goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hashtags",
+              "displayName": "hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cta",
+              "displayName": "cta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quality_status",
+              "displayName": "quality_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "qa_reason",
+              "displayName": "qa_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_topic",
+              "displayName": "source_topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow_status",
+              "displayName": "workflow_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1584,
+        -288
+      ],
+      "id": "09305001-69c7-400b-9610-4949093b2e94",
+      "name": "Append Ready Content",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU",
+          "mode": "list",
+          "cachedResultName": "Content Repurposing - Practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Content Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fOpdZM6RyU9OppDXgUt9wderghYs_DHvm_kMqJPPUvU/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "created_at": "={{ $json.created_at }}",
+            "content_id": "={{ $json.content_id }}",
+            "channel": "={{ $json.channel }}",
+            "goal": "={{ $json.goal }}",
+            "audience": "={{ $json.audience }}",
+            "content": "={{ $json.content }}",
+            "hashtags": "={{ $json.hashtags }}",
+            "cta": "={{ $json.cta }}",
+            "quality_status": "={{ $json.quality_status }}",
+            "qa_reason": "={{ $json.qa_reason }}",
+            "source_topic": "={{ $json.source_topic }}",
+            "workflow_status": "={{ $json.workflow_status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "audience",
+              "displayName": "audience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "goal",
+              "displayName": "goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hashtags",
+              "displayName": "hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cta",
+              "displayName": "cta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quality_status",
+              "displayName": "quality_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "qa_reason",
+              "displayName": "qa_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_topic",
+              "displayName": "source_topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow_status",
+              "displayName": "workflow_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1504,
+        32
+      ],
+      "id": "b347936a-f4c5-42d5-b521-6825d8dcff40",
+      "name": "Append Revision Content",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        624,
+        208
+      ],
+      "id": "17991416-20f9-4387-922e-8274b170f420",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "zl5iBZrkD3i4YPLj",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        144
+      ],
+      "id": "dce83008-0fc7-422d-abec-109aa2c3129f",
+      "name": "Wait",
+      "webhookId": "7b99bce9-277f-41cf-8c0f-78937376c56c"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "creat content task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "creat content task": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare Content Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Generation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Generation Error": {
+      "main": [
+        [
+          {
+            "node": "Append Content Exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Technical Content Alert": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Content Record": {
+      "main": [
+        [
+          {
+            "node": "Is Content Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Review Alert": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Content Ready?": {
+      "main": [
+        [
+          {
+            "node": "Append Ready Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append Revision Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Content Exception": {
+      "main": [
+        [
+          {
+            "node": "Technical Content Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Ready Content": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Revision Content": {
+      "main": [
+        [
+          {
+            "node": "Content Review Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "af1ac0ea-1ab2-4c1d-9bd2-6b9f42b9a0e0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4672ce217887a5e3b675414433b3be151a370334d561e21145cbd826b8568d10"
+  },
+  "nodeGroups": [],
+  "id": "7ZoWCgcH96P8CPl2",
+  "tags": []
+}
