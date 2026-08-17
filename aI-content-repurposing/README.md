@@ -1,5 +1,5 @@
 # AI Content Repurposing Workflow (n8n)
-
+![aI-content-repurposing Diagram](./aI-content-repurposing-diagram.png)
 An n8n automation that takes **one source topic** and automatically repurposes it into **four channel-ready content pieces** (LinkedIn, Instagram, X/Twitter, and Newsletter) written in Arabic, with an AI-powered quality gate that routes each piece to either "ready to publish" or "needs human review."
 
 Built as part of a hands-on n8n / AI automation portfolio.
