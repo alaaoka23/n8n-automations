@@ -1,4 +1,5 @@
-# NileCart AI Customer Support — RAG-Powered Automation
+# AI Customer Support — RAG-Powered Automation
+![Workflow b Diagram](./workflow-b-diagram.png)
 
 An automated, AI-driven customer support system built in **n8n**, using **Retrieval-Augmented Generation (RAG)** to answer customer questions in Arabic directly from a company knowledge base — with automatic escalation to a human agent whenever the AI cannot answer confidently.
 
