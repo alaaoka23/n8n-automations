@@ -1,4 +1,5 @@
 # B2B Lead Research & Outreach Automation
+![b2b-lead-research Diagram](./b2b-lead-research-diagram.png)
 
 An n8n workflow that turns a raw list of B2B leads into a prioritized, research-backed outreach pipeline: it validates lead data, enriches each company from its public website, scores and drafts personalized outreach with an AI agent, and routes every outcome — successful, disqualified, or failed — to a fully auditable trail in Google Sheets.
 
