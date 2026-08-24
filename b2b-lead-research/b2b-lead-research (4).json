@@ -1,0 +1,1212 @@
+{
+  "name": "b2b-lead-research",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6b2b01e9-8454-4439-91f6-a1b8c5ee0a05",
+      "name": "When clicking ‘Execute workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        }
+      },
+      "id": "6d1f65fe-0f68-450b-baab-b725153746f1",
+      "name": "Get row(s) in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        432
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "leads",
+        "options": {}
+      },
+      "id": "85fd5c12-c742-4ef6-8d27-4fb635f0c9ae",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        448,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "leads",
+        "options": {}
+      },
+      "id": "b5cf8667-6a83-494e-ad47-355482dcfc01",
+      "name": "Split Out",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        672,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $json;\n\nconst leadId = String(input.lead_id ?? '').trim();\nconst companyName = String(input.company_name ?? '').trim();\nconst websiteUrl = String(input.website_url ?? '').trim();\nconst contactName = String(input.contact_name ?? '').trim();\nconst contactEmail = String(input.contact_email ?? '').trim().toLowerCase();\nconst industry = String(input.industry ?? '').trim();\nconst companySize = String(input.company_size ?? '').trim();\n\nconst urlIsValid = /^https?:\\/\\/[^\\s]+$/i.test(websiteUrl );\n\nconst emailIsValid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(contactEmail);\nconst requiredFieldsPresent = Boolean(leadId && companyName && websiteUrl);\nconst isValidLead = requiredFieldsPresent && urlIsValid && emailIsValid;\n\n\nreturn {\n  json: {\n    row_number: input.row_number,\n    lead_id: leadId,\n    company_name: companyName,\n    website_url: websiteUrl,\n    contact_name: contactName,\n    contact_email: contactEmail,\n    industry: industry || 'Unknown',\n    company_size: companySize || 'Unknown',\n    url_is_valid: urlIsValid,\n    email_is_valid: emailIsValid,\n    required_fields_present: requiredFieldsPresent,\n    is_valid_lead: isValidLead,\n    validation_reason: isValidLead\n      ? 'Valid lead for research'\n      : 'Missing required fields or invalid website URL',\n    original_status: input.status || 'new',\n    received_at: new Date().toISOString()\n  }\n};\n"
+      },
+      "id": "fd2c77e3-05ef-4e19-a7f9-c6d1b25bdb18",
+      "name": "Code in JavaScript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bb43c4b2-c963-42cc-a791-46bc8c940db6",
+              "leftValue": "={{ $json.is_valid_lead }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9ed462ae-e165-4622-b479-5328ddad66a7",
+      "name": "is lead valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    exception_id: `LEAD-ERR-${Date.now(  )}`,\n    lead_id: $json.lead_id || 'unknown',\n    company_name: $json.company_name || 'unknown',\n    stage: 'validation',\n    error_message: $json.validation_reason,\n    source_url: $json.website_url || '',\n    created_at: new Date().toISOString(),\n    action_taken: 'Skipped API request and logged for review',\n    status: 'invalid_input'\n  }\n};"
+      },
+      "id": "62879908-6621-4adb-b823-27f65b4b9acc",
+      "name": "prepare lead exception",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "id": "55a2ad0c-6680-44a0-88b0-cfa00529da8a",
+      "name": "Append Lead Exception",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2832,
+        624
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const errorText = $json.error?.message || $json.message || 'Microlink request failed';\n\nreturn {\n  json: {\n    exception_id: `RESEARCH-ERR-${Date.now(  )}`,\n    lead_id: $('Code in JavaScript').item.json.lead_id,\n    company_name: $('Code in JavaScript').item.json.company_name,\n    stage: 'microlink_api',\n    error_message: errorText,\n    source_url: $('Code in JavaScript').item.json.website_url,\n    created_at: new Date().toISOString(),\n    action_taken: 'Skipped AI scoring and logged API failure',\n    status: 'research_failed'\n  }\n};"
+      },
+      "id": "7604c139-5392-483e-82d8-3295a97d7d23",
+      "name": "prepare research exception",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\nconst original = $('Code in JavaScript').item.json;\nconst data = response.data || {};\n\nconst researchStatus = response.status === 'success' && data.title\n  ? 'success'\n  : 'insufficient_data';\n\nreturn {\n  json: {\n    lead_id: original.lead_id,\n    company_name: original.company_name,\n    website_url: original.website_url,\n    contact_name: original.contact_name,\n    contact_email: original.contact_email,\n    industry: original.industry,\n    company_size: original.company_size,\n    page_title: data.title || '',\n    page_description: data.description || '',\n    page_language: data.lang || '',\n    page_publisher: data.publisher || '',\n    canonical_url: data.url || original.website_url,\n    logo_url: data.logo?.url || '',\n    research_status: researchStatus,\n    research_source: 'Microlink metadata API',\n    researched_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "5245f3ce-5053-4146-9d3d-750804dac472",
+      "name": "normalize company research",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this B2B lead using only the verified company metadata below.\n\nLead ID: {{ $json.lead_id }}\nCompany: {{ $json.company_name }}\nWebsite: {{ $json.website_url }}\nContact name: {{ $json.contact_name }}\nContact email: {{ $json.contact_email }}\nIndustry: {{ $json.industry }}\nCompany size: {{ $json.company_size }}\nPage title: {{ $json.page_title }}\nPage description: {{ $json.page_description }}\nPublisher: {{ $json.page_publisher }}\nResearch status: {{ $json.research_status }}\n\nEvaluate whether this company could reasonably benefit from AI automation services.\nCreate an Arabic or English outreach draft based on the available evidence, but do not invent company facts, budgets, pain points, clients, or technologies.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a careful B2B lead-research and outreach assistant.\n\nYour job is to evaluate a potential business lead using only the verified metadata provided in the user message.\n\nRules:\n1. Do not invent facts about the company.\n2. Do not claim that the company uses a technology unless the input explicitly says so.\n3. If the website data is missing or weak, lower research_confidence and set needs_review to true.\n4. Classify priority as high only when the evidence shows a clear fit and the outreach can be specific without guessing.\n5. Classify priority as medium when there may be a fit but a human should review the assumptions.\n6. Classify priority as low when there is weak evidence, no clear business fit, or insufficient information.\n7. Never send an email. Create a draft only; a human must review it before any external communication.\n8. Do not include sensitive personal data in the email.\n9. Keep the email short, respectful, and non-spammy.\n10. Return only the required structured output."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1776,
+        32
+      ],
+      "id": "53bbd639-0e67-4333-a060-af628c040545",
+      "name": "AI Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1760,
+        288
+      ],
+      "id": "140c7b24-e00d-4687-8d10-dc60c500d016",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "oHFodwgvPRLXoAuK",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"priority\": {\n      \"type\": \"string\",\n      \"enum\": [\"high\", \"medium\", \"low\"]\n    },\n    \"fit_score\": {\n      \"type\": \"number\",\n      \"minimum\": 0,\n      \"maximum\": 100\n    },\n    \"research_confidence\": {\n      \"type\": \"string\",\n      \"enum\": [\"high\", \"medium\", \"low\"]\n    },\n    \"fit_reasons\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" }\n    },\n    \"personalization_angle\": {\n      \"type\": \"string\"\n    },\n    \"email_subject\": {\n      \"type\": \"string\"\n    },\n    \"email_body\": {\n      \"type\": \"string\"\n    },\n    \"risk_flags\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" }\n    },\n    \"needs_review\": {\n      \"type\": \"boolean\"\n    },\n    \"handoff_reason\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"priority\",\n    \"fit_score\",\n    \"research_confidence\",\n    \"fit_reasons\",\n    \"personalization_angle\",\n    \"email_subject\",\n    \"email_body\",\n    \"risk_flags\",\n    \"needs_review\",\n    \"handoff_reason\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1968,
+        288
+      ],
+      "id": "9b8fc1ee-42c5-497b-b7f5-aae430ac4537",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.priority }}",
+                    "rightValue": "high",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1413fc70-ddf9-44eb-b89d-66ad09cbdd91"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "96f868b6-5022-4603-8911-c1d4cb974e34",
+                    "leftValue": "={{ $json.output.priority }}",
+                    "rightValue": "medium",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "18bb0ba3-08c6-48d2-a79f-f3c065bfadff",
+                    "leftValue": "={{ $json.output.priority }}",
+                    "rightValue": "low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2144,
+        -16
+      ],
+      "id": "ca0b2f2a-ae6a-48fa-a564-579d3b684045",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=[MEDIUM - REVIEW] {{ $json.output.email_subject }}",
+        "message": "={{ $json.output.email_body }}",
+        "options": {
+          "sendTo": "={{ $('normalize company research').item.json.contact_email }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2608,
+        0
+      ],
+      "id": "70bf96df-dae7-45e9-8a11-8f2597208b63",
+      "name": "Create a draft(medium)",
+      "webhookId": "0d02e91b-493c-40ca-916d-c5a25ac00f0f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "C82cfwF9Cei7omxz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=[REVIEW REQUIRED] {{ $json.output.email_subject }}",
+        "message": "={{ $json.output.email_body }}",
+        "options": {
+          "sendTo": "={{ $('normalize company research').item.json.contact_email }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2608,
+        -192
+      ],
+      "id": "20003ce4-4827-4e61-8a1a-8e3578527e40",
+      "name": "Create a draft(high)",
+      "webhookId": "0d02e91b-493c-40ca-916d-c5a25ac00f0f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "C82cfwF9Cei7omxz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2832,
+        -96
+      ],
+      "id": "3d7c112b-c4d7-45a1-9948-8dc99755e707",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2608,
+        192
+      ],
+      "id": "02734c68-6095-4c1e-8fe9-6329e1fa44ef",
+      "name": "Append disqualified leads",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const current = $json;\n\nlet errorText = current.error?.message\n  || current.message\n  || current.error\n  || 'AI Agent or parser failed';\n\nif (typeof errorText === 'object') {\n  errorText = JSON.stringify(errorText);\n}\n\nlet original = {};\n\ntry {\n  original = $('normalize company research').item.json || {};\n} catch (error) {\n  original = {};\n}\n\nreturn {\n  json: {\n    exception_id: `AI-ERR-${Date.now()}`,\n    lead_id: original.lead_id || current.lead_id || 'unknown',\n    company_name: original.company_name || current.company_name || 'unknown',\n    stage: 'ai_scoring',\n    error_message: String(errorText),\n    source_url: original.website_url || current.website_url || '',\n    created_at: new Date().toISOString(),\n    action_taken: 'No Gmail draft created',\n    status: 'ai_failed'\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        480
+      ],
+      "id": "7c225611-36da-4a1c-8f49-9075cb7c09a3",
+      "name": "prepare AI exception"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const original = $('normalize company research').item.json;\n\nreturn {\n  json: {\n    exception_id: `ROUTE-ERR-${Date.now()}`,\n    lead_id: original.lead_id,\n    company_name: original.company_name,\n    stage: 'routing',\n    error_message: 'Unexpected priority value returned by AI',\n    source_url: original.website_url,\n    created_at: new Date().toISOString(),\n    action_taken: 'No Gmail draft created',\n    status: 'routing_failed'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2384,
+        288
+      ],
+      "id": "818ba767-dcd9-4d02-9209-14fb3d494784",
+      "name": "Prepare Routing Exception"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lead_id": "={{ $('normalize company research').item.json.lead_id }}",
+            "status": "disqualified"
+          },
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": [
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_name",
+              "displayName": "contact_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "company_size",
+              "displayName": "company_size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2832,
+        192
+      ],
+      "id": "7ff6301c-7ebb-4729-9764-3b639338114f",
+      "name": "Update status (disqualified)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lead_id": "={{ $('normalize company research').item.json.lead_id }}",
+            "status": "draft_created"
+          },
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": [
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_name",
+              "displayName": "contact_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "company_size",
+              "displayName": "company_size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3056,
+        -96
+      ],
+      "id": "00e14375-5170-49b6-801d-e7222b171b2e",
+      "name": "Update status(draft_created)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.microlink.io",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.website_url }}"
+            },
+            {
+              "name": "meta",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ccbf98aa-ead0-48e9-b902-64824f1a99cb",
+      "name": "microlink",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1344,
+        336
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lead_id": "={{ $json.lead_id }}",
+            "status": "={{ $json.status }}"
+          },
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": [
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_name",
+              "displayName": "contact_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "company_size",
+              "displayName": "company_size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3072,
+        624
+      ],
+      "id": "5417db52-edf4-4fc2-bbc7-7fa78fac6268",
+      "name": "Update status(invalid&failed)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WsZYwVruWrPtkjdH",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "is lead valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "is lead valid?": {
+      "main": [
+        [
+          {
+            "node": "microlink",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "prepare lead exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare lead exception": {
+      "main": [
+        [
+          {
+            "node": "Append Lead Exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare research exception": {
+      "main": [
+        [
+          {
+            "node": "Append Lead Exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize company research": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "prepare AI exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Create a draft(high)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a draft(medium)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append disqualified leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Routing Exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a draft(high)": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a draft(medium)": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare AI exception": {
+      "main": [
+        [
+          {
+            "node": "Append Lead Exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Routing Exception": {
+      "main": [
+        [
+          {
+            "node": "Append Lead Exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Update status(draft_created)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append disqualified leads": {
+      "main": [
+        [
+          {
+            "node": "Update status (disqualified)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Lead Exception": {
+      "main": [
+        [
+          {
+            "node": "Update status(invalid&failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "microlink": {
+      "main": [
+        [
+          {
+            "node": "normalize company research",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "prepare research exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c9d55809-e91f-4487-89d7-39bcea3d38c7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4672ce217887a5e3b675414433b3be151a370334d561e21145cbd826b8568d10"
+  },
+  "nodeGroups": [],
+  "id": "flJZL0iil2rxfo2A",
+  "tags": []
+}
